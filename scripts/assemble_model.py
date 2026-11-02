@@ -14,7 +14,7 @@ def assemble_model() -> Path:
     """Rebuild model.pth from the checked-in chunks and verify its checksum."""
     parts = sorted(PARTS_DIR.glob("part-*.bin"))
     if not parts:
-        raise SystemExit(f"No model chunks found in {PARTS_DIR}")
+        raise FileNotFoundError(f"No model chunks found in {PARTS_DIR}")
 
     digest = hashlib.sha256()
     with MODEL_PATH.open("wb") as output:
@@ -26,7 +26,7 @@ def assemble_model() -> Path:
     actual_sha256 = digest.hexdigest()
     if actual_sha256 != EXPECTED_SHA256:
         MODEL_PATH.unlink(missing_ok=True)
-        raise SystemExit(
+        raise ValueError(
             f"Model checksum mismatch: expected {EXPECTED_SHA256}, got {actual_sha256}"
         )
     print(f"Rebuilt {MODEL_PATH.name} from {len(parts)} chunks ({MODEL_PATH.stat().st_size} bytes)")
@@ -34,7 +34,10 @@ def assemble_model() -> Path:
 
 
 def main() -> None:
-    assemble_model()
+    try:
+        assemble_model()
+    except (FileNotFoundError, ValueError) as error:
+        raise SystemExit(str(error)) from error
 
 
 if __name__ == "__main__":

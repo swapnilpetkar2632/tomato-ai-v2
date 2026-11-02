@@ -111,6 +111,8 @@ python app.py
 
 Access the web app by navigating to **`http://127.0.0.1:5000`** in your web browser.
 
+For Render, use `python scripts/assemble_model.py && pip install -r requirements.txt` as the build command and `gunicorn --workers 1 --threads 2 --timeout 120 --bind 0.0.0.0:$PORT app:app` as the start command. If a deployment omits the ignored `model.pth`, inference also rebuilds it safely from `model_parts/` on the first prediction.
+
 ### 3. Authentication, pages, and local security configuration
 
 The application workspace requires authentication. Only `/login`, `/signup`, `/forgot-password`, `/reset-password/<token>`, static files, and `/health` are public. After signing in, the page map is:
