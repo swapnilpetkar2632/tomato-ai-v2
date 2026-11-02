@@ -33,11 +33,17 @@ if not secret_key:
     )
     secret_key = secrets.token_urlsafe(32)
 
+database_url = os.environ.get("DATABASE_URL", "").strip()
+if database_url.startswith("postgres://"):
+    database_url = "postgresql+psycopg://" + database_url.removeprefix("postgres://")
+elif database_url.startswith("postgresql://"):
+    database_url = "postgresql+psycopg://" + database_url.removeprefix("postgresql://")
+
 database_path = Path(app.instance_path) / "app.db"
 app.config.from_mapping(
     SECRET_KEY=secret_key,
     DEBUG=debug_enabled,
-    SQLALCHEMY_DATABASE_URI=f"sqlite:///{database_path.as_posix()}",
+    SQLALCHEMY_DATABASE_URI=database_url or f"sqlite:///{database_path.as_posix()}",
     SQLALCHEMY_TRACK_MODIFICATIONS=False,
     MAX_CONTENT_LENGTH=16 * 1024 * 1024,
     TEMPLATES_AUTO_RELOAD=True,
@@ -45,6 +51,11 @@ app.config.from_mapping(
     SESSION_COOKIE_SAMESITE="Lax",
     SESSION_COOKIE_SECURE=not development_mode,
 )
+if database_url.startswith("postgresql+"):
+    app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+        "pool_pre_ping": True,
+        "pool_recycle": 300,
+    }
 
 Path(app.instance_path).mkdir(parents=True, exist_ok=True)
 db.init_app(app)
@@ -309,4 +320,9 @@ if __name__ == "__main__":
     print("  Starting Conformal Leaf Disease Detection Web App")
     print("  Open in browser: http://127.0.0.1:5000")
     print("=" * 70)
-    app.run(host="127.0.0.1", port=5000, debug=app.config["DEBUG"], use_reloader=False)
+    app.run(
+        host=os.environ.get("HOST", "0.0.0.0"),
+        port=int(os.environ.get("PORT", "5000")),
+        debug=app.config["DEBUG"],
+        use_reloader=False,
+    )

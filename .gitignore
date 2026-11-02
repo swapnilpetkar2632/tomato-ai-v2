@@ -43,6 +43,7 @@ upload_*
 # Local account database and saved scan thumbnails
 instance/
 *.db
+.env
 
 # Training data is not required for web inference
 data/train/

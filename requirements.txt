@@ -10,3 +10,5 @@ Flask-SQLAlchemy
 Flask-WTF
 Flask-Limiter
 gunicorn
+psycopg[binary]
+boto3
