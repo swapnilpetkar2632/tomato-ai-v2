@@ -145,6 +145,8 @@ The workflow requires all ten expected tomato class folders and at least one sup
 
 The training script requests pretrained ResNet18 ImageNet weights, which may download on the first run. **Training overwrites `model.pth` and `class_mapping.json`; calibration overwrites `threshold.json`; evaluation overwrites `results.txt`.** The app-only workflow does not run these steps.
 
+This public app release intentionally omits the large `data/train`, `data/calib`, and `data/test` image folders. The checked-in model artifacts are sufficient for web inference. Restore a compatible dataset before running training, calibration, evaluation, or the disease-asset preparation script.
+
 The Home page shows the calibration target separately from the most recently recorded empirical evaluation. The Analyze page uses plain-language labels such as “Model confidence” and “Possible diseases,” while its probability drawer shows only the highest and second-highest ranked classes for a focused readout. The API still returns the complete confidence list for compatibility. An empty prediction set is never described as “no disease” or “healthy.” Its top-softmax 20% screen is only a heuristic and has not been validated to detect non-leaf or out-of-distribution images. `evaluate_ood.py` produces a separate exploratory report for an unlabeled directory such as `D:\ood`; its output is not coverage evaluation or proof of OOD detection.
 
 ---
