@@ -10,7 +10,8 @@ MODEL_PATH = PROJECT_ROOT / "model.pth"
 EXPECTED_SHA256 = "062ac6ef57d65a4ea33a8bef437eca86f97ff02ac418b1e75141b4b6985f52e8"
 
 
-def main() -> None:
+def assemble_model() -> Path:
+    """Rebuild model.pth from the checked-in chunks and verify its checksum."""
     parts = sorted(PARTS_DIR.glob("part-*.bin"))
     if not parts:
         raise SystemExit(f"No model chunks found in {PARTS_DIR}")
@@ -29,6 +30,11 @@ def main() -> None:
             f"Model checksum mismatch: expected {EXPECTED_SHA256}, got {actual_sha256}"
         )
     print(f"Rebuilt {MODEL_PATH.name} from {len(parts)} chunks ({MODEL_PATH.stat().st_size} bytes)")
+    return MODEL_PATH
+
+
+def main() -> None:
+    assemble_model()
 
 
 if __name__ == "__main__":

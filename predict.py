@@ -30,6 +30,7 @@ import torch.nn as nn
 from torchvision import models, transforms
 from class_mapping import ensure_same_class_mapping, validate_class_mapping
 from conformal_sets import prediction_set_indices
+from scripts.assemble_model import assemble_model
 from paths import (
     CLASS_MAP_PATH,
     DATA_TEST,
@@ -71,7 +72,9 @@ def _get_inference_engine() -> tuple[nn.Module, dict, torch.device]:
         return _CACHED_MODEL, _CACHED_THRESH, _CACHED_DEVICE
 
     if not MODEL_PATH.exists():
-        raise FileNotFoundError(f"Model file '{MODEL_PATH}' not found. Run Stage 3 first.")
+        # model.pth is intentionally ignored by Git; deployment builds may only
+        # contain the checked-in chunks. Rebuild the exact artifact on demand.
+        assemble_model()
     if not THRESH_PATH.exists():
         raise FileNotFoundError(f"Threshold file '{THRESH_PATH}' not found. Run Stage 4 first.")
     if not CLASS_MAP_PATH.exists():
