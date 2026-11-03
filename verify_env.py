@@ -1,45 +1,35 @@
-"""
-verify_env.py
--------------
-STAGE 1 — Environment Setup Verification
-Verifies installed packages and GPU/CPU device availability.
-"""
+"""Verify the lightweight web runtime environment."""
 
 import sys
-from importlib.metadata import version
+from importlib.metadata import PackageNotFoundError, version
 
-import flask
-import torch
-import torchvision
-import numpy as np
-import PIL
-import sklearn
-import tqdm
 
-def main():
+RUNTIME_PACKAGES = (
+    "Flask",
+    "Flask-Login",
+    "Flask-SQLAlchemy",
+    "Flask-WTF",
+    "Flask-Limiter",
+    "numpy",
+    "Pillow",
+    "gunicorn",
+)
+
+
+def main() -> None:
     print("=" * 70)
-    print("  STAGE 1 -- Environment Setup Verification")
+    print("  STAGE 1 -- Lightweight Web Environment Verification")
     print("=" * 70)
-
     print(f"Python Version    : {sys.version.split()[0]}")
-    print(f"Flask Version     : {version('Flask')}")
-    print(f"PyTorch Version   : {torch.__version__}")
-    print(f"Torchvision       : {torchvision.__version__}")
-    print(f"NumPy Version     : {np.__version__}")
-    print(f"Scikit-Learn      : {sklearn.__version__}")
-    print(f"Pillow Version    : {PIL.__version__}")
-    print(f"tqdm Version      : {tqdm.__version__}")
-
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print("-" * 70)
-    print(f"CUDA Available    : {torch.cuda.is_available()}")
-    print(f"Device in Use     : {device}")
-    if torch.cuda.is_available():
-        print(f"GPU Name          : {torch.cuda.get_device_name(0)}")
-    else:
-        print("Falling back to CPU for computation.")
+    for package_name in RUNTIME_PACKAGES:
+        try:
+            package_version = version(package_name)
+        except PackageNotFoundError:
+            package_version = "NOT INSTALLED"
+        print(f"{package_name:<18}: {package_version}")
     print("=" * 70)
-    print("[OK] STAGE 1 Complete: Environment verified successfully.\n")
+    print("[OK] Lightweight web runtime verified.\n")
+
 
 if __name__ == "__main__":
     main()

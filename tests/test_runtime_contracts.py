@@ -11,7 +11,7 @@ from io import BytesIO
 from pathlib import Path
 from unittest.mock import patch
 
-import torch
+import numpy as np
 from PIL import Image
 
 import predict
@@ -21,7 +21,7 @@ from conformal_sets import prediction_set_indices
 from evaluate_ood import collect_images
 from extensions import db
 from models import Scan, User
-from paths import CLASS_MAP_PATH, DATA_TEST, MODEL_PATH, THRESH_PATH
+from paths import CLASS_MAP_PATH, DATA_TEST, MODEL_NPZ_PATH, MODEL_PATH, THRESH_PATH
 from sampling import stratified_sample_indices
 import split_data
 
@@ -29,10 +29,10 @@ import split_data
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
-class FlatModel(torch.nn.Module):
-    def forward(self, images):
-        logits = torch.zeros((images.shape[0], 10), device=images.device)
-        logits[:, 0] = torch.log(torch.tensor(3.0, device=images.device))
+class FlatModel:
+    def predict(self, image):
+        logits = np.zeros(10, dtype=np.float32)
+        logits[0] = np.log(3.0)
         return logits
 
 
@@ -105,7 +105,7 @@ class RuntimeContracts(unittest.TestCase):
             Image.new("RGB", (32, 32), "green").save(image_path)
             with patch(
                 "predict._get_inference_engine",
-                return_value=(FlatModel(), threshold, torch.device("cpu")),
+                return_value=(FlatModel(), threshold),
             ):
                 result = predict.predict_with_uncertainty(image_path)
 
@@ -114,6 +114,7 @@ class RuntimeContracts(unittest.TestCase):
 
     def test_project_artifact_paths_are_independent_of_working_directory(self):
         self.assertEqual(MODEL_PATH, PROJECT_ROOT / "model.pth")
+        self.assertEqual(MODEL_NPZ_PATH, PROJECT_ROOT / "model.npz")
         self.assertEqual(THRESH_PATH, PROJECT_ROOT / "threshold.json")
         self.assertEqual(CLASS_MAP_PATH, PROJECT_ROOT / "class_mapping.json")
         self.assertEqual(DATA_TEST, PROJECT_ROOT / "data" / "test")

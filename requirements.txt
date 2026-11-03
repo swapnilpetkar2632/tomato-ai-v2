@@ -1,9 +1,5 @@
-torch
-torchvision
 numpy
-scikit-learn
 pillow
-tqdm
 Flask
 Flask-Login
 Flask-SQLAlchemy

@@ -65,8 +65,8 @@ The saved threshold records a 75% calibration target. The checked-in `results.tx
 Clone the repository and install required Python packages:
 
 ```bash
-git clone https://github.com/swapnilpetkar2632/-Tomato-Leaf-AI.git
-cd -Tomato-Leaf-AI
+git clone https://github.com/swapnilpetkar2632/tomato-ai-v2.git
+cd tomato-ai-v2
 
 # Create and activate virtual environment
 python -m venv venv
@@ -75,11 +75,14 @@ python -m venv venv
 # On Linux/macOS:
 source venv/bin/activate
 
-# Install dependencies
+# Install lightweight web dependencies
 pip install -r requirements.txt
+```
 
-# Rebuild the ignored model file from the Git-safe model chunks
-python scripts/assemble_model.py
+The web runtime uses NumPy and Pillow for inference; it does not import PyTorch or torchvision. Install the optional ML toolchain only when training or recalibrating the model:
+
+```bash
+pip install -r requirements-ml.txt
 ```
 
 ### 2. Pipeline Execution
@@ -93,7 +96,7 @@ python split_data.py
 # Optional: use another dataset root (creates train/calib/test under that path)
 python split_data.py --src "C:\path\to\tomato_dataset"
 
-# Step 3: Train ResNet18 Model
+# Step 3: Train ResNet18 Model (requires requirements-ml.txt)
 python train.py
 
 # Step 4: Calibrate the conformal threshold (75% marginal in-distribution target)
@@ -101,6 +104,9 @@ python calibrate.py
 
 # Step 5: Evaluate Empirical Coverage on Unseen Test Split
 python evaluate.py
+
+# Step 5b: Export the trained checkpoint for the lightweight web runtime
+python scripts/export_numpy_model.py
 
 # Optional: audit unlabeled OOD images; this does not validate OOD detection
 python evaluate_ood.py --src "D:\ood"
@@ -111,7 +117,7 @@ python app.py
 
 Access the web app by navigating to **`http://127.0.0.1:5000`** in your web browser.
 
-For Render, use `python scripts/assemble_model.py && pip install -r requirements.txt` as the build command and `gunicorn --workers 1 --threads 2 --timeout 120 --bind 0.0.0.0:$PORT app:app` as the start command. If a deployment omits the ignored `model.pth`, inference also rebuilds it safely from `model_parts/` on the first prediction.
+For Render, commit the generated `model.npz`, use `pip install -r requirements.txt` as the build command, and use `gunicorn --workers 1 --threads 2 --timeout 120 --bind 0.0.0.0:$PORT app:app` as the start command. Azure App Service can use `gunicorn --bind=0.0.0.0 --timeout 600 app:app` as its startup command.
 
 ### 3. Authentication, pages, and local security configuration
 
@@ -145,7 +151,7 @@ python -m unittest discover -s tests -v
 
 The workflow requires all ten expected tomato class folders and at least one supported image in every train/calib/test class directory. Training derives the output layer size and class indices from `ImageFolder`, then verifies that the expected classes are present. Calibration, evaluation, and inference check their dataset/artifact class mappings against the saved `class_mapping.json`; mismatches fail with a clear error. Calibration and evaluation use deterministic class-stratified samples when limiting work to 500 images.
 
-The training script requests pretrained ResNet18 ImageNet weights, which may download on the first run. **Training overwrites `model.pth` and `class_mapping.json`; calibration overwrites `threshold.json`; evaluation overwrites `results.txt`.** The app-only workflow does not run these steps.
+The training script requests pretrained ResNet18 ImageNet weights, which may download on the first run. **Training overwrites `model.pth` and `class_mapping.json`; calibration overwrites `threshold.json`; evaluation overwrites `results.txt`; `scripts/export_numpy_model.py` creates `model.npz` for deployment.** The app-only workflow uses only `model.npz` and does not need PyTorch or torchvision.
 
 This public app release intentionally omits the large `data/train`, `data/calib`, and `data/test` image folders. The checked-in model artifacts are sufficient for web inference. Restore a compatible dataset before running training, calibration, evaluation, or the disease-asset preparation script.
 
@@ -161,6 +167,7 @@ The Home page shows the calibration target separately from the most recently rec
 ├── extensions.py         # Flask-Login, SQLAlchemy, CSRF, and rate limiting
 ├── models.py             # User and saved-scan database models
 ├── predict.py            # Inference engine with conformal set logic
+├── numpy_resnet.py       # PyTorch-free NumPy ResNet18 inference
 ├── conformal_sets.py     # Shared prediction-set rule
 ├── class_mapping.py      # Expected-class and mapping checks
 ├── train.py              # ResNet18 transfer learning script
@@ -189,9 +196,12 @@ The Home page shows the calibration target separately from the most recently rec
 ├── data/diseases.json    # Ten cautious disease reference profiles
 ├── static/img/diseases/  # Local resized sample images
 ├── scripts/prepare_disease_assets.py # Rebuilds local library thumbnails
+├── scripts/export_numpy_model.py     # Converts model.pth to model.npz
 ├── class_mapping.json    # Target class index mapping
+├── model.npz             # Portable NumPy inference weights (commit for deployment)
 ├── threshold.json       # Calibrated quantile q_hat metadata
-├── requirements.txt      # Python package dependencies
+├── requirements.txt      # Lightweight web runtime dependencies
+├── requirements-ml.txt   # Optional training/calibration dependencies
 ├── tests/                # Runtime and authentication contract tests
 ├── README.md             # Project documentation
 └── .gitignore            # Git exclusion settings
