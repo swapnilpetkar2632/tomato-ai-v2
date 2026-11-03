@@ -3,6 +3,7 @@
 import json
 import uuid
 from datetime import datetime, timedelta, timezone
+from io import BytesIO
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -16,6 +17,7 @@ from flask import (
     render_template,
     request,
     send_from_directory,
+    send_file,
     url_for,
 )
 from flask_login import current_user, login_required, login_user, logout_user
@@ -24,6 +26,7 @@ from PIL import Image
 from disease_data import library_link
 from extensions import db, limiter
 from models import Scan, User
+import storage
 
 
 auth = Blueprint("auth", __name__)
@@ -64,6 +67,12 @@ def _thumbnail_directory() -> Path:
 
 def _remove_thumbnail(scan: Scan) -> None:
     if not scan.thumbnail_path:
+        return
+    if storage.configured():
+        try:
+            storage.delete(scan.thumbnail_path)
+        except Exception:
+            current_app.logger.warning("Could not remove stored thumbnail %s", scan.thumbnail_path)
         return
     (_thumbnail_directory() / Path(scan.thumbnail_path).name).unlink(missing_ok=True)
 
@@ -244,6 +253,11 @@ def scan_thumbnail(scan_id: int):
     scan = Scan.query.filter_by(id=scan_id, user_id=current_user.id).first_or_404()
     if not scan.thumbnail_path:
         abort(404)
+    if storage.configured():
+        try:
+            return send_file(BytesIO(storage.get(scan.thumbnail_path)), mimetype="image/jpeg", max_age=31536000)
+        except FileNotFoundError:
+            abort(404)
     return send_from_directory(str(_thumbnail_directory()), Path(scan.thumbnail_path).name)
 
 
@@ -252,7 +266,8 @@ def scan_thumbnail(scan_id: int):
 def save_history():
     image_file = request.files.get("image")
     raw_result = request.form.get("result", "")
-    thumbnail_path: Path | None = None
+    thumbnail_key: str | None = None
+    local_thumbnail_path: Path | None = None
     if image_file is None or not image_file.filename:
         return jsonify({"error": "A scan image is required."}), 400
 
@@ -275,8 +290,14 @@ def save_history():
             thumbnail = image.convert("RGB")
             thumbnail.thumbnail((360, 260))
             filename = f"{uuid.uuid4().hex}.jpg"
-            thumbnail_path = _thumbnail_directory() / filename
-            thumbnail.save(thumbnail_path, format="JPEG", quality=86, optimize=True)
+            thumbnail_key = f"scan-thumbnails/{filename}"
+            thumbnail_bytes = BytesIO()
+            thumbnail.save(thumbnail_bytes, format="JPEG", quality=86, optimize=True)
+        if storage.configured():
+            storage.put(thumbnail_key, thumbnail_bytes.getvalue())
+        else:
+            local_thumbnail_path = _thumbnail_directory() / filename
+            local_thumbnail_path.write_bytes(thumbnail_bytes.getvalue())
 
         scan = Scan(
             user_id=current_user.id,
@@ -284,14 +305,19 @@ def save_history():
             top_confidence=top_confidence,
             prediction_set=prediction_set,
             set_size=set_size,
-            thumbnail_path=f"scan_thumbnails/{filename}",
+            thumbnail_path=thumbnail_key,
         )
         db.session.add(scan)
         db.session.commit()
     except (ValueError, KeyError, TypeError, json.JSONDecodeError, OSError):
         db.session.rollback()
-        if thumbnail_path is not None:
-            thumbnail_path.unlink(missing_ok=True)
+        if thumbnail_key and storage.configured():
+            try:
+                storage.delete(thumbnail_key)
+            except Exception:
+                current_app.logger.warning("Could not remove failed thumbnail %s", thumbnail_key)
+        if local_thumbnail_path is not None:
+            local_thumbnail_path.unlink(missing_ok=True)
         return jsonify({"error": "The scan could not be saved."}), 400
 
     return jsonify({"success": True, "scan_id": scan.id}), 201
